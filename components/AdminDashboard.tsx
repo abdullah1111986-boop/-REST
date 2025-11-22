@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { FileSpreadsheet, Loader, Upload, Search, Trash2, User, BookOpen, X, AlertTriangle } from 'lucide-react';
+import { FileSpreadsheet, Loader, Upload, Search, Trash2, User, BookOpen, X, AlertTriangle, HardDrive, Cloud } from 'lucide-react';
 import { Subject, Trainee } from '../types.ts';
 import { 
   getSubjects, getTrainees, deleteTrainee, deleteSubject,
-  processBulkImport
+  processBulkImport, getAppMode
 } from '../services/firebase.ts';
 import * as XLSX from 'xlsx';
 
@@ -17,6 +17,8 @@ const AdminDashboard: React.FC = () => {
   const [selectedTrainee, setSelectedTrainee] = useState<Trainee | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const appMode = getAppMode();
+  const isLocal = appMode === 'local';
 
   useEffect(() => {
     fetchData();
@@ -43,11 +45,9 @@ const AdminDashboard: React.FC = () => {
   };
 
   // --- CORE LOGIC: PARSE ROW DATA ---
-  // Returns parsed data if successful, or null/error if headers not found
   const parseSheetData = (rows: any[][]) => {
       if (!rows || rows.length === 0) return { success: false, msg: "الملف فارغ" };
 
-      // Keywords to detect columns
       const identityKeywords = ['رقم', 'هوية', 'سجل', 'id', 'no', 'num', 'student', 'trainee', 'المتدرب', 'اكاديمي'];
       const subjectCodeKeywords = ['رمز', 'كود', 'code', 'symbol', 'course', 'مقرر', 'مادة', 'المادة'];
       const subjectNameKeywords = ['اسم المادة', 'اسم المقرر', 'name', 'وصف', 'desc', 'title'];
@@ -60,7 +60,6 @@ const AdminDashboard: React.FC = () => {
       for (let i = 0; i < Math.min(rows.length, 25); i++) {
           const rowStr = rows[i].map(c => String(c).toLowerCase().trim());
           let matches = 0;
-          // Check for existence of keywords in this row
           if (rowStr.some(c => identityKeywords.some(kw => c.includes(kw)))) matches++;
           if (rowStr.some(c => subjectCodeKeywords.some(kw => c.includes(kw)))) matches++;
           
@@ -73,7 +72,6 @@ const AdminDashboard: React.FC = () => {
           }
       }
 
-      // If we didn't find at least the ID or Code column headers
       if (maxMatches < 1) {
           return { success: false, msg: "لم يتم التعرف على العناوين. تأكد من وجود 'رقم المتدرب' و 'رمز المقرر' أو تأكد من ترميز الملف." };
       }
@@ -96,7 +94,6 @@ const AdminDashboard: React.FC = () => {
       const importedSubjects = new Map<string, any>();
       const importedTrainees = new Map<string, any>();
       
-      // Optional columns
       const nameColIdx = findCol(subjectNameKeywords);
       const traineeNameColIdx = findCol(['اسم المتدرب', 'student name', 'full name', 'الاسم']);
       const phoneColIdx = findCol(['جوال', 'هاتف', 'mobile', 'phone']);
@@ -108,24 +105,20 @@ const AdminDashboard: React.FC = () => {
          
          let rawId = row[idColIdx];
          if (!rawId) continue;
-         // Aggressive ID cleaning: remove anything that isn't a digit or letter
          const idStr = String(rawId).replace(/[^a-zA-Z0-9]/g, '');
          if (idStr.length < 3) continue;
 
          let subCode = String(row[codeColIdx] || '').trim();
          if (!subCode || subCode.length < 2) continue;
 
-         // Subject Name (Fallback to Code)
          let subName = nameColIdx !== -1 ? String(row[nameColIdx] || '').trim() : '';
          if (!subName) subName = subCode;
 
-         // Trainee Name
          let traineeName = `متدرب ${idStr}`;
          if (traineeNameColIdx !== -1 && row[traineeNameColIdx]) {
             traineeName = String(row[traineeNameColIdx]).trim();
          }
          
-         // Create Trainee Entry if new
          if (!importedTrainees.has(idStr)) {
             importedTrainees.set(idStr, {
                fullName: traineeName,
@@ -141,17 +134,15 @@ const AdminDashboard: React.FC = () => {
             });
          }
 
-         // Add Remaining Subject
          const t = importedTrainees.get(idStr);
          t.failedSubjectIds.add(subCode);
 
-         // Add Subject Metadata
          if (!importedSubjects.has(subCode)) {
            importedSubjects.set(subCode, {
              name: subName,
              code: subCode,
-             level: 1, // Default
-             creditHours: 3 // Default
+             level: 1, 
+             creditHours: 3 
            });
          }
       }
@@ -165,7 +156,6 @@ const AdminDashboard: React.FC = () => {
     if (!file) return;
     setImporting(true);
 
-    // Function to complete the import process
     const completeImport = async (result: any) => {
         if (result.trainees.size === 0) {
             alert("تم قراءة الملف ولكن لم يتم العثور على بيانات متدربين صالحة.");
@@ -187,18 +177,18 @@ const AdminDashboard: React.FC = () => {
               trainees: traineesPayload
             });
 
-            alert(`تم بنجاح! \nتم تحديث بيانات ${traineesPayload.size} متدرب.`);
+            alert(`تم بنجاح! \nتم تحديث بيانات ${traineesPayload.size} متدرب في ${isLocal ? 'قاعدة البيانات المحلية' : 'قاعدة بيانات السحابة'}.`);
             fetchData();
         } catch (err) {
             console.error(err);
-            alert("حدث خطأ أثناء حفظ البيانات في قاعدة البيانات.");
+            alert("حدث خطأ أثناء حفظ البيانات.");
         } finally {
             setImporting(false);
             if (fileInputRef.current) fileInputRef.current.value = '';
         }
     };
 
-    // Attempt 1: Standard Read (Works for Excel .xlsx and UTF-8 CSV)
+    // Reader Implementation (same as before)
     const reader = new FileReader();
     reader.onload = async (evt) => {
         try {
@@ -212,32 +202,25 @@ const AdminDashboard: React.FC = () => {
             if (result.success) {
                 await completeImport(result);
             } else {
-                // Attempt 1 Failed. If file is CSV, it might be Windows-1256 (Arabic) encoded.
-                console.warn("Attempt 1 failed (UTF-8/Binary). Trying Windows-1256 for CSV...");
-                
                 const textReader = new FileReader();
                 textReader.onload = async (textEvt) => {
                      try {
                          const textStr = textEvt.target?.result as string;
-                         // Parse the text string explicitly
                          const wb2 = XLSX.read(textStr, { type: 'string' });
                          const ws2 = wb2.Sheets[wb2.SheetNames[0]];
                          const rows2 = XLSX.utils.sheet_to_json(ws2, { header: 1 }) as any[][];
-                         
                          const result2 = parseSheetData(rows2);
                          if (result2.success) {
                              await completeImport(result2);
                          } else {
-                             // Both attempts failed
-                             alert(`فشل قراءة الملف.\nالسبب: ${result.msg}\n\nتلميح: تأكد أن الملف يحتوي على أعمدة "رقم المتدرب" و "رمز المقرر".`);
+                             alert(`فشل قراءة الملف.\nالسبب: ${result.msg}`);
                              setImporting(false);
                          }
                      } catch (err2) {
-                         alert("فشل قراءة الملف كملف نصي.");
+                         alert("فشل قراءة الملف.");
                          setImporting(false);
                      }
                 };
-                // Read as Text with Arabic Windows encoding
                 textReader.readAsText(file, 'windows-1256');
             }
 
@@ -250,29 +233,36 @@ const AdminDashboard: React.FC = () => {
     reader.readAsArrayBuffer(file);
   };
 
-
   // --- RENDER HELPERS ---
 
   const filteredTrainees = trainees.filter(t => 
     t.fullName.includes(searchTerm) || 
     t.nationalId.includes(searchTerm) ||
-    t.traineeNumber.includes(searchTerm)
+    t.traineeNumber.includes(searchTerm) ||
+    (t.phoneNumber && t.phoneNumber.includes(searchTerm))
   );
 
   return (
     <div className="space-y-8 animate-fade-in">
       
       {/* Hero Section: Upload Only */}
-      <div className="bg-white p-8 rounded-2xl shadow-lg border-t-4 border-teal-600 text-center">
-         <div className="w-20 h-20 bg-teal-50 rounded-full flex items-center justify-center mx-auto mb-4">
-           <FileSpreadsheet className="text-teal-600" size={40} />
+      <div className={`bg-white p-8 rounded-2xl shadow-lg border-t-4 ${isLocal ? 'border-orange-500' : 'border-teal-600'} text-center relative overflow-hidden`}>
+         
+         {isLocal && (
+            <div className="absolute top-4 right-4 bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-2">
+               <HardDrive size={14} /> قاعدة بيانات محلية (Browser)
+            </div>
+         )}
+
+         <div className={`w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 ${isLocal ? 'bg-orange-50 text-orange-600' : 'bg-teal-50 text-teal-600'}`}>
+           <FileSpreadsheet size={40} />
          </div>
          <h2 className="text-2xl font-bold text-gray-800 mb-2">إدارة المواد المتبقية</h2>
          <p className="text-gray-500 max-w-xl mx-auto mb-6">
-           قم برفع ملف الإكسل أو CSV الذي يحتوي على قائمة المواد المتبقية.
+           قم برفع ملف الإكسل أو CSV.
            <br/>
-           <span className="text-xs text-teal-600 font-bold">
-             يدعم ملفات الاكسل (XLSX) وملفات CSV (UTF-8 أو Windows-1256).
+           <span className={`text-xs font-bold ${isLocal ? 'text-orange-600' : 'text-teal-600'}`}>
+             سيتم الحفظ في: {isLocal ? 'المتصفح الحالي فقط (Temporary)' : 'السيرفر السحابي (Cloud)'}
            </span>
          </p>
          
@@ -287,10 +277,10 @@ const AdminDashboard: React.FC = () => {
           <button 
             onClick={() => fileInputRef.current?.click()}
             disabled={importing}
-            className="bg-teal-600 text-white px-8 py-4 rounded-xl hover:bg-teal-700 shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-1 flex items-center justify-center gap-3 mx-auto text-lg font-bold disabled:opacity-60 disabled:cursor-not-allowed"
+            className={`px-8 py-4 rounded-xl text-white shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-1 flex items-center justify-center gap-3 mx-auto text-lg font-bold disabled:opacity-60 disabled:cursor-not-allowed ${isLocal ? 'bg-orange-600 hover:bg-orange-700' : 'bg-teal-600 hover:bg-teal-700'}`}
           >
             {importing ? <Loader className="animate-spin" /> : <Upload />}
-            {importing ? 'جاري تحليل الملف...' : 'رفع ملف المواد المتبقية'}
+            {importing ? 'جاري المعالجة محلياً...' : 'رفع ملف المواد المتبقية'}
           </button>
       </div>
 
@@ -298,8 +288,8 @@ const AdminDashboard: React.FC = () => {
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 min-h-[400px] flex flex-col">
         {/* Toolbar */}
         <div className="p-4 border-b border-gray-100 flex flex-col sm:flex-row justify-between items-center gap-4">
-          <h3 className="font-bold text-gray-800 flex items-center gap-2">
-             <User size={20} className="text-teal-600"/>
+          <h3 className={`font-bold flex items-center gap-2 ${isLocal ? 'text-orange-700' : 'text-teal-700'}`}>
+             <User size={20}/>
              قائمة المتدربين ({trainees.length})
           </h3>
           <div className="relative w-full sm:w-64">
@@ -309,7 +299,7 @@ const AdminDashboard: React.FC = () => {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="بحث (الاسم / الرقم)..."
-              className="w-full pr-10 pl-4 py-2 border rounded-lg focus:ring-2 focus:ring-teal-500 focus:outline-none text-sm"
+              className={`w-full pr-10 pl-4 py-2 border rounded-lg focus:outline-none text-sm focus:ring-2 ${isLocal ? 'focus:ring-orange-500' : 'focus:ring-teal-500'}`}
             />
           </div>
         </div>
@@ -330,10 +320,10 @@ const AdminDashboard: React.FC = () => {
                 <tr 
                   key={t.id} 
                   onClick={() => setSelectedTrainee(t)}
-                  className="hover:bg-teal-50 cursor-pointer transition-colors group"
+                  className={`cursor-pointer transition-colors group ${isLocal ? 'hover:bg-orange-50' : 'hover:bg-teal-50'}`}
                 >
                   <td className="px-6 py-4">
-                    <div className="font-bold text-gray-800 group-hover:text-teal-700 transition-colors">{t.fullName}</div>
+                    <div className={`font-bold text-gray-800 transition-colors ${isLocal ? 'group-hover:text-orange-700' : 'group-hover:text-teal-700'}`}>{t.fullName}</div>
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-600">{t.major || '-'}</td>
                   <td className="px-6 py-4 text-center font-mono text-gray-600">{t.nationalId}</td>
@@ -358,7 +348,7 @@ const AdminDashboard: React.FC = () => {
         <div className="bg-gray-50 p-3 border-t flex justify-end">
            <button 
              onClick={() => {
-                if(window.confirm("هل تريد حذف جميع البيانات الحالية؟")) {
+                if(window.confirm(`هل تريد حذف جميع البيانات من ${isLocal ? 'قاعدة البيانات المحلية' : 'قاعدة بيانات السحابة'}؟`)) {
                     subjects.forEach(s => deleteSubject(s.id));
                     trainees.forEach(t => deleteTrainee(t.id));
                     setTimeout(() => window.location.reload(), 1000);
@@ -366,7 +356,7 @@ const AdminDashboard: React.FC = () => {
              }}
              className="text-xs text-red-400 hover:text-red-600 hover:underline"
            >
-             إفراغ قاعدة البيانات
+             إفراغ قاعدة البيانات ({isLocal ? 'Local' : 'Firebase'})
            </button>
         </div>
       </div>

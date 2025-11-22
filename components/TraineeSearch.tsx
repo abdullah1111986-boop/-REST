@@ -24,7 +24,7 @@ const TraineeSearch: React.FC = () => {
       ]);
 
       if (!trainee) {
-        setError('لم يتم العثور على سجل لهذا الرقم. تأكد من رفع البيانات من قبل المشرف.');
+        setError('لم يتم العثور على سجل لهذا الرقم. تأكد من صحة الرقم التدريبي أو الجوال.');
         return;
       }
 
@@ -52,7 +52,7 @@ const TraineeSearch: React.FC = () => {
               <Search className="text-teal-600" size={32} />
             </div>
             <h2 className="text-2xl font-bold text-gray-800">الاستعلام عن المواد المتبقية</h2>
-            <p className="text-gray-500 mt-2">أدخل رقم الهوية أو الرقم التدريبي</p>
+            <p className="text-gray-500 mt-2">أدخل الرقم التدريبي أو رقم الجوال</p>
           </div>
 
           <form onSubmit={handleSearch} className="relative max-w-md mx-auto">
@@ -60,7 +60,7 @@ const TraineeSearch: React.FC = () => {
               type="text"
               value={queryId}
               onChange={(e) => setQueryId(e.target.value)}
-              placeholder="أدخل الرقم هنا..."
+              placeholder="الرقم التدريبي / رقم الجوال"
               className="w-full pl-4 pr-12 py-4 bg-gray-50 border-2 border-gray-200 rounded-xl focus:border-teal-500 focus:bg-white transition-all text-lg text-center shadow-inner outline-none font-mono"
               autoFocus
             />

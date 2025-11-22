@@ -1,5 +1,6 @@
 import React from 'react';
-import { LogOut, Settings } from 'lucide-react';
+import { LogOut, Settings, Database, Cloud, HardDrive } from 'lucide-react';
+import { getAppMode } from '../services/firebase.ts';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -10,11 +11,14 @@ interface LayoutProps {
 }
 
 const Layout: React.FC<LayoutProps> = ({ children, onLogout, onOpenSettings, title, showLogout }) => {
+  const mode = getAppMode();
+  const isLocal = mode === 'local';
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col text-gray-800 font-cairo">
       {/* Header with Logos */}
-      <header className="bg-white shadow-md border-b border-teal-500/30 relative overflow-hidden">
-        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-teal-500 via-emerald-500 to-teal-700"></div>
+      <header className={`bg-white shadow-md border-b ${isLocal ? 'border-orange-500/30' : 'border-teal-500/30'} relative overflow-hidden transition-colors duration-500`}>
+        <div className={`absolute top-0 left-0 w-full h-1 ${isLocal ? 'bg-gradient-to-r from-orange-400 via-amber-500 to-orange-600' : 'bg-gradient-to-r from-teal-500 via-emerald-500 to-teal-700'}`}></div>
         <div className="container mx-auto px-4 py-3">
           <div className="flex justify-between items-center">
             {/* Right Side: TVTC Logo */}
@@ -30,9 +34,13 @@ const Layout: React.FC<LayoutProps> = ({ children, onLogout, onOpenSettings, tit
               </div>
             </div>
 
-            {/* Center: Title (Hidden on small screens) */}
-            <div className="hidden lg:block text-center">
+            {/* Center: Title & Mode Badge */}
+            <div className="hidden lg:flex flex-col items-center">
                <h1 className="text-xl font-bold text-gray-800 tracking-wide">{title}</h1>
+               <div className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded-full mt-1 border ${isLocal ? 'bg-orange-50 text-orange-700 border-orange-200' : 'bg-teal-50 text-teal-700 border-teal-200'}`}>
+                  {isLocal ? <HardDrive size={10} /> : <Cloud size={10} />}
+                  <span>{isLocal ? 'وضع قاعدة البيانات المحلية (مؤقت)' : 'متصل بالسحابة (Firebase)'}</span>
+               </div>
             </div>
 
             {/* Left Side: Vision 2030 & Controls */}
@@ -42,7 +50,7 @@ const Layout: React.FC<LayoutProps> = ({ children, onLogout, onOpenSettings, tit
                 {onOpenSettings && (
                   <button 
                     onClick={onOpenSettings}
-                    className="p-2 text-gray-500 hover:text-teal-700 hover:bg-teal-50 rounded-full transition-all"
+                    className={`p-2 rounded-full transition-all ${isLocal ? 'text-orange-600 hover:bg-orange-50' : 'text-teal-600 hover:bg-teal-50'}`}
                     title="الإعدادات"
                   >
                     <Settings size={20} />
@@ -71,6 +79,11 @@ const Layout: React.FC<LayoutProps> = ({ children, onLogout, onOpenSettings, tit
           {/* Title for mobile */}
           <div className="lg:hidden mt-3 text-center border-t pt-2">
              <h1 className="text-lg font-bold text-gray-800">{title}</h1>
+             <div className="flex justify-center mt-1">
+                 <span className={`text-[10px] px-2 py-0.5 rounded-full border ${isLocal ? 'bg-orange-50 text-orange-700 border-orange-200' : 'bg-teal-50 text-teal-700 border-teal-200'}`}>
+                    {isLocal ? 'نظام محلي' : 'نظام سحابي'}
+                 </span>
+             </div>
           </div>
         </div>
       </header>
@@ -81,7 +94,7 @@ const Layout: React.FC<LayoutProps> = ({ children, onLogout, onOpenSettings, tit
       </main>
 
       {/* Footer */}
-      <footer className="bg-gray-800 text-white pt-8 pb-4 mt-auto border-t-4 border-teal-600">
+      <footer className={`bg-gray-800 text-white pt-8 pb-4 mt-auto border-t-4 ${isLocal ? 'border-orange-500' : 'border-teal-600'}`}>
         <div className="container mx-auto px-4">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-6 text-center md:text-right">
              <div>

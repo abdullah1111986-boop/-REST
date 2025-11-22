@@ -4,18 +4,18 @@ import Layout from './components/Layout.tsx';
 import AdminDashboard from './components/AdminDashboard.tsx';
 import TraineeSearch from './components/TraineeSearch.tsx';
 import { ADMIN_PASSWORD_HASH, FirebaseConfig } from './types.ts';
-import { initFirebase, isFirebaseInitialized } from './services/firebase.ts';
-import { Lock, Settings, Save, HelpCircle, Check } from 'lucide-react';
+import { initFirebase, isFirebaseInitialized, getAppMode, setAppMode } from './services/firebase.ts';
+import { Lock, Settings, Save, HelpCircle, Check, HardDrive, Cloud, RefreshCw } from 'lucide-react';
 
 function App() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  // Default to true since we hardcoded the config in services/firebase.ts
   const [firebaseReady, setFirebaseReady] = useState(true);
+  
+  const currentMode = getAppMode();
 
   useEffect(() => {
-    // Double check just in case
     if (isFirebaseInitialized()) {
         setFirebaseReady(true);
     }
@@ -38,7 +38,7 @@ function App() {
     };
 
     return (
-      <div className="max-w-md mx-auto mt-10 bg-white p-8 rounded-xl shadow-lg text-center relative">
+      <div className="max-w-md mx-auto mt-10 bg-white p-8 rounded-xl shadow-lg text-center relative animate-fade-in">
         <button 
            onClick={() => setShowSettings(true)}
            className="absolute top-4 left-4 text-gray-400 hover:text-teal-600"
@@ -47,8 +47,8 @@ function App() {
            <Settings size={20} />
         </button>
 
-        <div className="w-16 h-16 bg-teal-100 rounded-full flex items-center justify-center mx-auto mb-6">
-          <Lock className="text-teal-700" size={32} />
+        <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6 ${currentMode === 'local' ? 'bg-orange-100' : 'bg-teal-100'}`}>
+          <Lock className={currentMode === 'local' ? 'text-orange-700' : 'text-teal-700'} size={32} />
         </div>
         <h2 className="text-2xl font-bold mb-6 text-gray-800">دخول المشرفين</h2>
         <form onSubmit={handleLogin} className="space-y-4">
@@ -57,13 +57,13 @@ function App() {
             value={password}
             onChange={(e) => { setPassword(e.target.value); setError(false); }}
             placeholder="كلمة المرور (1234)"
-            className="w-full px-4 py-3 border rounded-lg text-center focus:ring-2 focus:ring-teal-500 outline-none dir-ltr"
+            className={`w-full px-4 py-3 border rounded-lg text-center focus:ring-2 outline-none dir-ltr ${currentMode === 'local' ? 'focus:ring-orange-500' : 'focus:ring-teal-500'}`}
             autoFocus
           />
           {error && <p className="text-red-500 text-sm">كلمة المرور غير صحيحة</p>}
           <button
             type="submit"
-            className="w-full bg-teal-700 text-white py-3 rounded-lg font-bold hover:bg-teal-800 transition-colors"
+            className={`w-full text-white py-3 rounded-lg font-bold transition-colors ${currentMode === 'local' ? 'bg-orange-600 hover:bg-orange-700' : 'bg-teal-700 hover:bg-teal-800'}`}
           >
             دخول
           </button>
@@ -81,18 +81,17 @@ function App() {
   // --- Settings Component Internal ---
   const SettingsModal = () => {
     const [configJson, setConfigJson] = useState(
-      // Default to empty string if nothing in local storage, user can paste new config to override
       localStorage.getItem('firebaseConfig') || ''
     );
     const [status, setStatus] = useState('');
-    const [showHelp, setShowHelp] = useState(false);
+    const [mode, setMode] = useState(currentMode);
 
-    const handleSave = () => {
+    const handleSaveConfig = () => {
       try {
         const config: FirebaseConfig = JSON.parse(configJson);
         const success = initFirebase(config);
         if (success) {
-          setStatus('تم الحفظ! سيتم إعادة التحميل...');
+          setStatus('تم حفظ إعدادات فايربيس! سيتم إعادة التحميل...');
           setTimeout(() => {
               window.location.reload();
           }, 1000);
@@ -104,61 +103,88 @@ function App() {
       }
     };
 
+    const handleToggleMode = (newMode: 'cloud' | 'local') => {
+        if (newMode === mode) return;
+        if (window.confirm(newMode === 'local' 
+            ? "هل أنت متأكد من التحويل إلى الوضع المحلي؟\nسيتم حفظ البيانات في هذا المتصفح فقط ولن تكون متاحة للآخرين." 
+            : "هل أنت متأكد من التحويل إلى الوضع السحابي؟\nسيتم الاتصال بـ Firebase لعرض البيانات المشتركة.")) {
+            setAppMode(newMode);
+        }
+    };
+
     return (
       <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
-        <div className="bg-white w-full max-w-2xl rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+        <div className="bg-white w-full max-w-2xl rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-scale-up">
           <div className="bg-gray-800 text-white p-4 flex justify-between items-center shrink-0">
-            <h3 className="font-bold flex items-center gap-2"><Settings size={18} /> تحديث ربط قاعدة البيانات</h3>
+            <h3 className="font-bold flex items-center gap-2"><Settings size={18} /> إعدادات النظام</h3>
             <button onClick={() => setShowSettings(false)} className="hover:text-gray-300">✕</button>
           </div>
           
-          <div className="flex-grow overflow-y-auto p-6">
-             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-                   <h4 className="font-bold text-blue-800 mb-1 flex items-center gap-2">
-                     <HelpCircle size={16} /> تنويه
-                   </h4>
-                   <p className="text-sm text-blue-700">
-                     التطبيق متصل حالياً بقاعدة البيانات الافتراضية. استخدم هذا النموذج فقط إذا كنت تريد تغيير قاعدة البيانات الحالية بأخرى جديدة.
-                   </p>
+          <div className="flex-grow overflow-y-auto p-6 space-y-8">
+            
+            {/* MODE TOGGLE */}
+            <div className="space-y-3">
+                <h4 className="font-bold text-gray-700 flex items-center gap-2 text-lg border-b pb-2">
+                    <HardDrive size={20} /> نوع التخزين (Database Mode)
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <button 
+                        onClick={() => handleToggleMode('cloud')}
+                        className={`p-4 rounded-xl border-2 flex flex-col items-center gap-2 transition-all ${mode === 'cloud' ? 'border-teal-600 bg-teal-50 text-teal-800' : 'border-gray-200 hover:border-gray-300 text-gray-500'}`}
+                    >
+                        <Cloud size={32} className={mode === 'cloud' ? 'text-teal-600' : 'text-gray-400'} />
+                        <span className="font-bold">النظام السحابي (Firebase)</span>
+                        <span className="text-xs text-center">البيانات مشتركة بين جميع المستخدمين وتخزن في السيرفر</span>
+                    </button>
+                    
+                    <button 
+                         onClick={() => handleToggleMode('local')}
+                         className={`p-4 rounded-xl border-2 flex flex-col items-center gap-2 transition-all ${mode === 'local' ? 'border-orange-500 bg-orange-50 text-orange-800' : 'border-gray-200 hover:border-gray-300 text-gray-500'}`}
+                    >
+                        <HardDrive size={32} className={mode === 'local' ? 'text-orange-500' : 'text-gray-400'} />
+                        <span className="font-bold">النظام المحلي (Local DB)</span>
+                        <span className="text-xs text-center">البيانات تخزن في هذا المتصفح فقط (مؤقت/للعرض)</span>
+                    </button>
+                </div>
             </div>
 
-            {!showHelp ? (
-              <>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  كود الإعدادات الجديد (JSON):
-                </label>
-                <textarea
-                  className="w-full h-64 p-4 text-xs font-mono bg-gray-900 text-green-400 border rounded-lg focus:ring-2 focus:ring-teal-500 outline-none shadow-inner"
-                  value={configJson}
-                  onChange={(e) => setConfigJson(e.target.value)}
-                  placeholder={`{
-  "apiKey": "...",
-  "projectId": "...",
-  ...
-}`}
-                  dir="ltr"
-                />
-                {status && (
-                  <div className={`mt-3 p-3 rounded-lg text-sm font-bold flex items-center gap-2 ${status.includes('تم') ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                    {status.includes('تم') ? <Check size={16}/> : <Settings size={16}/>}
-                    {status}
-                  </div>
-                )}
-              </>
-            ) : (
-              <div className="space-y-4 text-sm text-gray-700">
-                 <p>يمكنك العثور على البيانات في إعدادات مشروعك في فايربيس.</p>
-              </div>
+            {/* FIREBASE CONFIG */}
+            {mode === 'cloud' && (
+                <div className="space-y-3 opacity-100 transition-opacity">
+                    <h4 className="font-bold text-gray-700 flex items-center gap-2 text-lg border-b pb-2 mt-6">
+                        <RefreshCw size={20} /> تحديث إعدادات الربط (Firebase Config)
+                    </h4>
+                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-2">
+                        <div className="flex gap-2">
+                            <HelpCircle size={16} className="text-blue-600 shrink-0 mt-0.5"/> 
+                            <p className="text-sm text-blue-700">
+                                استخدم هذا القسم فقط إذا كنت تريد ربط التطبيق بقاعدة بيانات فايربيس مختلفة عن الافتراضية.
+                            </p>
+                        </div>
+                    </div>
+                    <textarea
+                    className="w-full h-32 p-4 text-xs font-mono bg-gray-900 text-green-400 border rounded-lg focus:ring-2 focus:ring-teal-500 outline-none shadow-inner"
+                    value={configJson}
+                    onChange={(e) => setConfigJson(e.target.value)}
+                    dir="ltr"
+                    placeholder='{"apiKey": "...", "projectId": "...", ...}'
+                    />
+                     <div className="flex justify-end">
+                        <button 
+                            onClick={handleSaveConfig}
+                            className="bg-gray-800 text-white px-4 py-2 rounded-lg hover:bg-black flex items-center gap-2 text-sm font-bold"
+                        >
+                            <Save size={16} /> تحديث المفاتيح
+                        </button>
+                    </div>
+                    {status && (
+                    <div className={`p-3 rounded-lg text-sm font-bold flex items-center gap-2 ${status.includes('تم') ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                        {status.includes('تم') ? <Check size={16}/> : <Settings size={16}/>}
+                        {status}
+                    </div>
+                    )}
+                </div>
             )}
-          </div>
-
-          <div className="p-4 border-t bg-gray-50 flex justify-end shrink-0 gap-2">
-              <button 
-                onClick={handleSave}
-                className="bg-teal-600 text-white px-6 py-2 rounded-lg hover:bg-teal-700 flex items-center gap-2 font-bold"
-              >
-                <Save size={18} /> حفظ وتحديث
-              </button>
           </div>
         </div>
       </div>
@@ -191,7 +217,7 @@ function App() {
                      <p className="text-gray-400 text-sm mb-4">منطقة المشرفين والمدربين فقط</p>
                      <button 
                        onClick={() => setShowLogin(true)}
-                       className="text-teal-700 font-medium bg-teal-50 px-6 py-2 rounded-full hover:bg-teal-100 flex items-center justify-center gap-2 mx-auto transition-colors"
+                       className={`font-medium px-6 py-2 rounded-full flex items-center justify-center gap-2 mx-auto transition-colors ${currentMode === 'local' ? 'text-orange-700 bg-orange-50 hover:bg-orange-100' : 'text-teal-700 bg-teal-50 hover:bg-teal-100'}`}
                      >
                        <Lock size={16} />
                        دخول لوحة التحكم
