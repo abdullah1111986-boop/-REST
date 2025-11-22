@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import Layout from './components/Layout';
-import AdminDashboard from './components/AdminDashboard';
-import TraineeSearch from './components/TraineeSearch';
-import { ADMIN_PASSWORD_HASH, FirebaseConfig } from './types';
-import { initFirebase, isFirebaseInitialized } from './services/firebase';
+import Layout from './components/Layout.tsx';
+import AdminDashboard from './components/AdminDashboard.tsx';
+import TraineeSearch from './components/TraineeSearch.tsx';
+import { ADMIN_PASSWORD_HASH, FirebaseConfig } from './types.ts';
+import { initFirebase, isFirebaseInitialized } from './services/firebase.ts';
 import { Lock, Settings, Save, HelpCircle, Check } from 'lucide-react';
 
 function App() {
@@ -147,7 +147,6 @@ function App() {
               </>
             ) : (
               <div className="space-y-4 text-sm text-gray-700">
-                {/* Help content omitted for brevity as user already has data */}
                  <p>يمكنك العثور على البيانات في إعدادات مشروعك في فايربيس.</p>
               </div>
             )}

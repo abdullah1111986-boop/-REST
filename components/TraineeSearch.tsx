@@ -1,8 +1,7 @@
-
 import React, { useState } from 'react';
 import { Search, AlertCircle, Book, User, GraduationCap, FileQuestion } from 'lucide-react';
-import { searchTraineeByNationalId, getSubjects } from '../services/firebase';
-import { Trainee, Subject } from '../types';
+import { searchTraineeByNationalId, getSubjects } from '../services/firebase.ts';
+import { Trainee, Subject } from '../types.ts';
 
 const TraineeSearch: React.FC = () => {
   const [queryId, setQueryId] = useState('');

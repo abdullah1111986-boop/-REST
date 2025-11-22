@@ -1,11 +1,10 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { FileSpreadsheet, Loader, Upload, Search, Trash2, User, BookOpen, X, AlertTriangle } from 'lucide-react';
-import { Subject, Trainee } from '../types';
+import { Subject, Trainee } from '../types.ts';
 import { 
   getSubjects, getTrainees, deleteTrainee, deleteSubject,
   processBulkImport
-} from '../services/firebase';
+} from '../services/firebase.ts';
 import * as XLSX from 'xlsx';
 
 const AdminDashboard: React.FC = () => {
